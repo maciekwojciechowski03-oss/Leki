@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moje Leki</title>
+<style>
+  :root {
+    --pageBg1:#EFF6FF; --pageBg2:#F0FDF4;
+    --card:#fff; --title:#1E2A3A; --text:#1E2A3A; --muted:#6B7A8D;
+    --border:#E2E8F0; --inputBg:#F8FAFC; --shadow:0 2px 14px rgba(30,58,95,.08);
+    --infoBg:#F0FDF4; --infoBdr:#BBF7D0; --infoTxt:#166534;
+    --warnBg:#FEF3C7; --warnBdr:#FDE68A; --warnTxt:#92400E;
+    --errBg:#FEE2E2; --errBdr:#FCA5A5; --errTxt:#991B1B;
+    --stepBtn:#EFF6FF; --delBtn:#FEE2E2;
+  }
+  body.dark {
+    --pageBg1:#0F172A; --pageBg2:#0F172A;
+    --card:#1E293B; --title:#F1F5F9; --text:#E2E8F0; --muted:#94A3B8;
+    --border:#334155; --inputBg:#0F172A; --shadow:0 2px 16px rgba(0,0,0,.45);
+    --infoBg:#0d2b1a; --infoBdr:#2d4a2d; --infoTxt:#86EFAC;
+    --warnBg:#451a03; --warnBdr:#92400E; --warnTxt:#FCD34D;
+    --errBg:#450a0a; --errBdr:#92400E; --errTxt:#FCA5A5;
+    --stepBtn:#1e3a5f; --delBtn:#3d1515;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; min-height:100vh;
+    background:linear-gradient(160deg, var(--pageBg1) 0%, var(--pageBg2) 100%);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    transition:background .3s;
+  }
+  .container { max-width:480px; margin:0 auto; padding:0 16px 52px; }
+  .header { display:flex; justify-content:space-between; align-items:center; padding:28px 0 16px; }
+  .header h1 { margin:0; font-size:26px; font-weight:800; color:var(--title); letter-spacing:-0.5px; }
+  .header p { margin:3px 0 0; font-size:13px; color:var(--muted); }
+  .themeBtn { background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:8px 12px; cursor:pointer; font-size:20px; box-shadow:var(--shadow); }
+  .banner { border-radius:12px; padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .banner.warn { background:var(--warnBg); border:1px solid var(--warnBdr); }
+  .banner.info { background:var(--infoBg); border:1px solid var(--infoBdr); }
+  .banner.err { background:var(--errBg); border:1px solid var(--errBdr); }
+  .banner span { font-size:13px; font-weight:600; }
+  .banner.warn span { color:var(--warnTxt); }
+  .banner.info span { color:var(--infoTxt); }
+  .banner.err span { color:var(--errTxt); }
+  .banner button.close { background:none; border:none; font-size:16px; cursor:pointer; padding:0 4px; color:inherit; }
+  .infoStatic { background:var(--infoBg); border:1px solid var(--infoBdr); border-radius:12px; padding:10px 14px; margin-bottom:14px; }
+  .infoStatic span { font-size:13px; color:var(--infoTxt); }
+  .thresholds { background:var(--card); border-radius:12px; padding:10px 14px; margin-bottom:14px; box-shadow:var(--shadow); display:flex; gap:14px; flex-wrap:wrap; }
+  .thresholds span.lbl { font-size:12px; color:var(--muted); }
+  .thresholds span.w { font-size:12px; font-weight:600; color:#F59E0B; }
+  .thresholds span.c { font-size:12px; font-weight:600; color:#EF4444; }
+  .card { background:var(--card); border-radius:16px; padding:18px 16px; box-shadow:var(--shadow); margin-bottom:16px; }
+  .card .formLabel { margin:0 0 12px; font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; }
+  input[type=text], input[type=number] {
+    width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid var(--border);
+    font-size:15px; outline:none; background:var(--inputBg); color:var(--text);
+  }
+  .row { display:flex; gap:10px; margin-top:10px; }
+  .row input { flex:1; }
+  .errText { color:#EF4444; font-size:13px; margin:8px 0 0; }
+  .btnPrimary {
+    background:linear-gradient(135deg,#3B7DD8,#2563EB); color:#fff; border:none; border-radius:11px;
+    width:100%; margin-top:12px; padding:13px; font-size:15px; font-weight:700; cursor:pointer;
+  }
+  .empty { text-align:center; padding:48px 20px; color:var(--muted); }
+  .empty .icon { font-size:42px; }
+  .empty p { margin-top:12px; line-height:1.6; }
+  .lekCard { background:var(--card); border-radius:14px; padding:16px; box-shadow:var(--shadow); margin-bottom:12px; border-left:4px solid #34D399; transition:border-color .3s; }
+  .lekTop { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .lekTop .left { display:flex; align-items:center; gap:8px; min-width:0; }
+  .orderBtns { display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
+  .orderBtns button { background:none; border:none; cursor:pointer; color:var(--muted); font-size:11px; padding:1px 4px; line-height:1; }
+  .orderBtns button:disabled { opacity:.2; cursor:default; }
+  .lekName { font-size:17px; font-weight:700; color:var(--title); word-break:break-word; }
+  .lekTop .right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .pill { padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+  .pill.ok { background:#D1FAE5; color:#34D399; }
+  .pill.warning { background:#FEF3C7; color:#F59E0B; }
+  .pill.critical { background:#FEE2E2; color:#EF4444; }
+  .pill.none { background:#F1F5F9; color:var(--muted); }
+  body.dark .pill.ok { background:#052e16; }
+  body.dark .pill.warning { background:#451a03; }
+  body.dark .pill.critical { background:#450a0a; }
+  body.dark .pill.none { background:#334155; }
+  .delBtn { background:var(--delBtn); color:#DC2626; border:none; border-radius:8px; width:28px; height:28px; font-size:12px; cursor:pointer; font-weight:700; }
+  .stepRow { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .stepRow .lbl { font-size:13px; color:var(--muted); font-weight:500; }
+  .stepCtrl { display:flex; align-items:center; gap:6px; }
+  .stepCtrl button { background:var(--stepBtn); color:#3B7DD8; border:none; border-radius:8px; width:32px; height:32px; font-size:18px; font-weight:700; cursor:pointer; }
+  .stepCtrl input { width:62px; text-align:center; padding:6px 2px; border-radius:8px; border:1.5px solid var(--border); font-size:14px; font-weight:600; color:var(--text); background:var(--inputBg); outline:none; }
+  .divider { height:1px; background:var(--border); margin:10px 0; }
+  .kupnoRow { display:flex; gap:8px; }
+  .kupnoRow input { flex:1; padding:8px 12px; font-size:13px; }
+  .kupnoRow button { background:#3B7DD8; color:#fff; border:none; border-radius:9px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .footer { text-align:center; font-size:12px; color:var(--muted); margin-top:24px; }
+  .loadingBox, .errorBox { text-align:center; padding:60px 20px; color:var(--muted); }
+  .errorBox button { margin-top:14px; background:#2563EB; color:#fff; border:none; border-radius:10px; padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer; }
+  .errorBox code { display:block; margin-top:10px; font-size:12px; background:var(--inputBg); padding:8px; border-radius:8px; word-break:break-all; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ─── KONFIGURACJA — ZMIEŃ NA SWÓJ ADRES WORKERA ──────────────────
+const WORKER_URL = "https://plain-fire-5209.maciekwojciechowski03.workers.dev";
+
+// ─── Stałe ───────────────────────────────────────────────────────
+const WARN_DAYS = 14;
+const CRIT_DAYS = 7;
+
+// ─── Stan aplikacji ──────────────────────────────────────────────
+let state = {
+  leki: [],
+  lastDeductDate: null,
+  loading: true,
+  error: null,
+  dark: localStorage.getItem('leki-dark') === 'true',
+  catchupMsg: null,
+  showReminder: false,
+  reminderClosed: false,
+  kupno: {},
+  form: { name: '', stock: '', dose: '' },
+  formErr: '',
+};
+
+let saveTimer = null;
+
+// ─── Helpers ─────────────────────────────────────────────────────
+function fix(n) { return parseFloat(parseFloat(n).toFixed(4)); }
+function toDateKey(d) { return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+function calcDays(stock, dose) { return (!dose || dose <= 0) ? null : Math.floor(stock / dose); }
+function getStatus(days) { return days === null ? 'none' : days <= CRIT_DAYS ? 'critical' : days <= WARN_DAYS ? 'warning' : 'ok'; }
+
+function calcMissedDays(lastKey) {
+  if (!lastKey) return 0;
+  const [ly, lm, ld] = lastKey.split('-').map(Number);
+  const last = new Date(ly, lm, ld);
+  const now = new Date();
+  let count = 0;
+  const d = new Date(last);
+  d.setDate(d.getDate() + 1);
+  while (d <= now) {
+    const isToday = toDateKey(d) === toDateKey(now);
+    if (!isToday || now.getHours() >= 9) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
+// ─── Komunikacja z serwerem ───────────────────────────────────────
+async function loadData() {
+  state.loading = true;
+  state.error = null;
+  render();
+  try {
+    const res = await fetch(`${WORKER_URL}/leki`);
+    if (!res.ok) throw new Error('Błąd serwera: ' + res.status);
+    const data = await res.json();
+    state.leki = data.leki || [];
+    state.lastDeductDate = data.lastDeductDate || null;
+    state.loading = false;
+    processCatchup();
+    checkReminder();
+    render();
+  } catch (e) {
+    state.loading = false;
+    state.error = e.message || 'Nie udało się połączyć z serwerem.';
+    render();
+  }
+}
+
+function saveData() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      await fetch(`${WORKER_URL}/leki`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leki: state.leki, lastDeductDate: state.lastDeductDate }),
+      });
+    } catch (e) {
+      console.error('Zapis nie powiódł się', e);
+    }
+  }, 500);
+}
+
+function processCatchup() {
+  const missed = calcMissedDays(state.lastDeductDate);
+  const now = new Date();
+  if (missed > 0) {
+    state.leki = state.leki.map(l => ({ ...l, stock: Math.max(0, fix(l.stock - l.dose * missed)) }));
+    const lastDeducted = new Date();
+    if (now.getHours() < 9) lastDeducted.setDate(lastDeducted.getDate() - 1);
+    state.lastDeductDate = toDateKey(lastDeducted);
+    state.catchupMsg = `Odjęto ${missed} ${missed === 1 ? 'dawkę' : missed < 5 ? 'dawki' : 'dawek'} za ostatnie ${missed} ${missed === 1 ? 'dzień' : missed < 5 ? 'dni' : 'dni'}`;
+    saveData();
+    setTimeout(() => { state.catchupMsg = null; render(); }, 6000);
+  } else if (!state.lastDeductDate && now.getHours() >= 9) {
+    state.lastDeductDate = toDateKey(now);
+    saveData();
+  }
+}
+
+function checkReminder() {
+  const now = new Date();
+  if (now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() >= 10)) {
+    state.showReminder = true;
+  }
+}
+
+// ─── Akcje ───────────────────────────────────────────────────────
+function updateForm(field, val) { state.form[field] = val; }
+
+function dodajLek() {
+  const name = state.form.name.trim();
+  const stock = parseFloat(state.form.stock);
+  const dose = parseFloat(state.form.dose);
+  if (!name) { state.formErr = 'Podaj nazwę leku.'; render(); return; }
+  if (isNaN(stock) || stock < 0) { state.formErr = 'Podaj ilość tabletek.'; render(); return; }
+  if (isNaN(dose) || dose <= 0) { state.formErr = 'Podaj dawkę dzienną (np. 1.25).'; render(); return; }
+  const maxOrd = state.leki.length ? Math.max(...state.leki.map(l => l.order ?? 0)) : 0;
+  state.leki.push({ id: Date.now(), name, stock, dose, order: maxOrd + 1 });
+  state.form = { name: '', stock: '', dose: '' };
+  state.formErr = '';
+  saveData();
+  render();
+}
+
+function usunLek(id) {
+  state.leki = state.leki.filter(l => l.id !== id);
+  saveData();
+  render();
+}
+
+function adjStock(id, delta) {
+  state.leki = state.leki.map(l => l.id === id ? { ...l, stock: Math.max(0, fix(l.stock + delta)) } : l);
+  saveData();
+  render();
+}
+
+function setStock(id, val) {
+  const n = parseFloat(val);
+  if (isNaN(n) || n < 0) return;
+  state.leki = state.leki.map(l => l.id === id ? { ...l, stock: n } : l);
+  saveData();
+  render();
+}
+
+function adjDose(id, delta) {
+  state.leki = state.leki.map(l => l.id === id ? { ...l, dose: Math.max(0.25, fix(l.dose + delta)) } : l);
+  saveData();
+  render();
+}
+
+function setDose(id, val) {
+  const n = parseFloat(val);
+  if (isNaN(n) || n <= 0) return;
+  state.leki = state.leki.map(l => l.id === id ? { ...l, dose: n } : l);
+  saveData();
+  render();
+}
+
+function updateKupno(id, val) { state.kupno[id] = val; }
+
+function addKupno(id) {
+  const n = parseFloat(state.kupno[id] ?? '');
+  if (isNaN(n) || n <= 0) return;
+  state.leki = state.leki.map(l => l.id === id ? { ...l, stock: fix(l.stock + n) } : l);
+  state.kupno[id] = '';
+  saveData();
+  render();
+}
+
+function moveLek(id, dir) {
+  const sorted = [...state.leki].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const idx = sorted.findIndex(l => l.id === id);
+  const nIdx = idx + dir;
+  if (nIdx < 0 || nIdx >= sorted.length) return;
+  const A = sorted[idx], B = sorted[nIdx];
+  state.leki = state.leki.map(l => {
+    if (l.id === A.id) return { ...l, order: B.order ?? 0 };
+    if (l.id === B.id) return { ...l, order: A.order ?? 0 };
+    return l;
+  });
+  saveData();
+  render();
+}
+
+function toggleDark() {
+  state.dark = !state.dark;
+  localStorage.setItem('leki-dark', state.dark);
+  document.body.classList.toggle('dark', state.dark);
+  render();
+}
+
+function closeReminder() { state.showReminder = false; render(); }
+
+// ─── Render ──────────────────────────────────────────────────────
+function pillHtml(days) {
+  if (days === null) return `<span class="pill none">brak dawki</span>`;
+  const s = getStatus(days);
+  const labels = {
+    critical: days === 0 ? 'Brak! 🚨' : `${days} dni 🚨`,
+    warning: `${days} dni ⚠️`,
+    ok: `${days} dni`,
+  };
+  return `<span class="pill ${s}">${labels[s]}</span>`;
+}
+
+function stepRowHtml(label, value, onMinus, onPlus, onChangeFn, focusId) {
+  return `
+    <div class="stepRow">
+      <span class="lbl">${label}</span>
+      <div class="stepCtrl">
+        <button onclick="${onMinus}">−</button>
+        <input type="number" step="any" data-focus-id="${focusId}" value="${value}" oninput="${onChangeFn}(this.value)">
+        <button onclick="${onPlus}">+</button>
+      </div>
+    </div>`;
+}
+
+function buildHTML() {
+  if (state.loading) {
+    return `<div class="container"><div class="loadingBox"><div style="font-size:40px">⏳</div><p>Wczytywanie danych...</p></div></div>`;
+  }
+  if (state.error) {
+    return `<div class="container">
+      <div class="errorBox">
+        <div style="font-size:40px">⚠️</div>
+        <p>Nie udało się połączyć z serwerem.</p>
+        <code>${state.error}</code>
+        <p style="font-size:12px;margin-top:10px">Sprawdź czy adres Workera jest poprawny i czy Worker działa.</p>
+        <button onclick="loadData()">Spróbuj ponownie</button>
+      </div>
+    </div>`;
+  }
+
+  const sorted = [...state.leki].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  let html = `<div class="container">
+    <div class="header">
+      <div>
+        <h1>💊 Moje Leki</h1>
+        <p>Śledź zapasy i dawkowanie</p>
+      </div>
+      <button class="themeBtn" onclick="toggleDark()">${state.dark ? '☀️' : '🌙'}</button>
+    </div>`;
+
+  if (state.showReminder && state.leki.length > 0) {
+    html += `<div class="banner warn">
+      <span>💊 Pamiętaj o wzięciu leków!</span>
+      <button class="close" onclick="closeReminder()">✕</button>
+    </div>`;
+  }
+
+  if (state.catchupMsg) {
+    html += `<div class="banner info"><span>✅ ${state.catchupMsg}</span></div>`;
+  }
+
+  html += `<div class="infoStatic"><span>📅 Dawki odliczane przy każdym otwarciu aplikacji — za każdy miniony dzień po 9:00. Dane synchronizują się między urządzeniami.</span></div>`;
+
+  html += `<div class="thresholds">
+    <span class="lbl">Progi alarmu:</span>
+    <span class="w">⚠️ poniżej ${WARN_DAYS} dni</span>
+    <span class="c">🚨 poniżej ${CRIT_DAYS} dni</span>
+  </div>`;
+
+  html += `<div class="card">
+    <p class="formLabel">Dodaj lek</p>
+    <input type="text" data-focus-id="form-name" placeholder="Nazwa leku (np. Metformin)" value="${state.form.name}"
+      oninput="updateForm('name', this.value)" onkeydown="if(event.key==='Enter') dodajLek()">
+    <div class="row">
+      <input type="number" step="0.25" min="0" data-focus-id="form-stock" placeholder="Ilość tabletek" value="${state.form.stock}"
+        oninput="updateForm('stock', this.value)">
+      <input type="number" step="0.25" min="0.25" data-focus-id="form-dose" placeholder="Dawka/dzień" value="${state.form.dose}"
+        oninput="updateForm('dose', this.value)">
+    </div>
+    ${state.formErr ? `<p class="errText">${state.formErr}</p>` : ''}
+    <button class="btnPrimary" onclick="dodajLek()">+ Dodaj lek</button>
+  </div>`;
+
+  if (sorted.length === 0) {
+    html += `<div class="empty"><div class="icon">📋</div><p>Nie masz jeszcze żadnych leków.<br>Dodaj pierwszy powyżej.</p></div>`;
+  } else {
+    sorted.forEach((lek, idx) => {
+      const days = calcDays(lek.stock, lek.dose);
+      const status = getStatus(days);
+      const accent = status === 'critical' ? '#EF4444' : status === 'warning' ? '#F59E0B' : '#34D399';
+      html += `<div class="lekCard" style="border-left-color:${accent}">
+        <div class="lekTop">
+          <div class="left">
+            <div class="orderBtns">
+              <button onclick="moveLek(${lek.id},-1)" ${idx === 0 ? 'disabled' : ''}>▲</button>
+              <button onclick="moveLek(${lek.id},1)" ${idx === sorted.length - 1 ? 'disabled' : ''}>▼</button>
+            </div>
+            <span class="lekName">${lek.name}</span>
+          </div>
+          <div class="right">
+            ${pillHtml(days)}
+            <button class="delBtn" onclick="usunLek(${lek.id})">✕</button>
+          </div>
+        </div>
+        ${stepRowHtml('Zapas', lek.stock, `adjStock(${lek.id},-${lek.dose})`, `adjStock(${lek.id},${lek.dose})`, `(function(v){setStock(${lek.id},v)})`, `stock-${lek.id}`)}
+        ${stepRowHtml('Dawka / dzień', lek.dose, `adjDose(${lek.id},-0.25)`, `adjDose(${lek.id},0.25)`, `(function(v){setDose(${lek.id},v)})`, `dose-${lek.id}`)}
+        <div class="divider"></div>
+        <div class="kupnoRow">
+          <input type="number" step="0.25" min="0" data-focus-id="kupno-${lek.id}" placeholder="Kupiłem … tabletek" value="${state.kupno[lek.id] ?? ''}"
+            oninput="updateKupno(${lek.id}, this.value)" onkeydown="if(event.key==='Enter') addKupno(${lek.id})">
+          <button onclick="addKupno(${lek.id})">+ Dodaj</button>
+        </div>
+      </div>`;
+    });
+  }
+
+  html += `<p class="footer">Dane synchronizowane na serwerze — dostępne z każdego urządzenia</p>`;
+  html += `</div>`;
+  return html;
+}
+
+function render() {
+  const active = document.activeElement;
+  let focusId = null, selStart = null, selEnd = null;
+  if (active && active.tagName === 'INPUT' && active.hasAttribute('data-focus-id')) {
+    focusId = active.getAttribute('data-focus-id');
+    selStart = active.selectionStart;
+    selEnd = active.selectionEnd;
+  }
+
+  document.body.classList.toggle('dark', state.dark);
+  document.getElementById('app').innerHTML = buildHTML();
+
+  if (focusId) {
+    const el = document.querySelector(`[data-focus-id="${focusId}"]`);
+    if (el) {
+      el.focus();
+      if (selStart !== null && el.setSelectionRange) {
+        try { el.setSelectionRange(selStart, selEnd); } catch (e) {}
+      }
+    }
+  }
+}
+
+// ─── Start ───────────────────────────────────────────────────────
+document.body.classList.toggle('dark', state.dark);
+loadData();
+</script>
+</body>
+</html>
