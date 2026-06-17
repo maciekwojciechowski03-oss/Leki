@@ -97,10 +97,40 @@
   .loadingBox, .errorBox { text-align:center; padding:60px 20px; color:var(--muted); }
   .errorBox button { margin-top:14px; background:#2563EB; color:#fff; border:none; border-radius:10px; padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer; }
   .errorBox code { display:block; margin-top:10px; font-size:12px; background:var(--inputBg); padding:8px; border-radius:8px; word-break:break-all; }
+
+  /* Modal hasła */
+  .pwModalOverlay {
+    position:fixed; inset:0; background:rgba(15,23,42,.55);
+    display:none; align-items:center; justify-content:center; z-index:1000; padding:20px;
+  }
+  .pwModalBox {
+    background:var(--card); border-radius:16px; padding:24px 22px; max-width:340px; width:100%;
+    box-shadow:0 10px 40px rgba(0,0,0,.3);
+  }
+  .pwModalTitle { margin:0 0 14px; font-size:16px; font-weight:700; color:var(--title); }
+  .pwModalInput {
+    width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid var(--border);
+    font-size:16px; outline:none; background:var(--inputBg); color:var(--text); box-sizing:border-box;
+    letter-spacing:2px;
+  }
+  .pwModalBtns { display:flex; gap:10px; margin-top:16px; }
+  .pwModalBtns button { flex:1; padding:11px; border-radius:10px; border:none; font-size:14px; font-weight:600; cursor:pointer; }
+  .pwModalCancelBtn { background:var(--inputBg); color:var(--muted); border:1px solid var(--border) !important; }
+  .pwModalOkBtn { background:linear-gradient(135deg,#3B7DD8,#2563EB); color:#fff; }
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="pwModalOverlay" class="pwModalOverlay">
+  <div class="pwModalBox">
+    <p class="pwModalTitle">🔒 Podaj hasło, aby zapisać zmianę</p>
+    <input type="password" id="pwModalInput" class="pwModalInput" placeholder="••••••••" autocomplete="current-password">
+    <div class="pwModalBtns">
+      <button id="pwModalCancel" class="pwModalCancelBtn" type="button">Anuluj</button>
+      <button id="pwModalOk" class="pwModalOkBtn" type="button">Zapisz</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ─── KONFIGURACJA — ZMIEŃ NA SWÓJ ADRES WORKERA ──────────────────
@@ -120,27 +150,55 @@ let state = {
   catchupMsg: null,
   showReminder: false,
   reminderClosed: false,
-  saveError: null,
   kupno: {},
   form: { name: '', stock: '', dose: '' },
   formErr: '',
 };
 
 let saveTimer = null;
+let lastConfirmed = { leki: [], lastDeductDate: null }; // ostatni potwierdzony stan z serwera
 
-// ─── Hasło (sesyjne) ───────────────────────────────────────────
-function getPassword() {
-  let pw = sessionStorage.getItem('leki-pass');
-  if (!pw) {
-    pw = window.prompt('Podaj hasło, aby zapisać zmianę:');
-    if (pw) sessionStorage.setItem('leki-pass', pw);
-  }
-  return pw || '';
+// ─── Hasło (modal, sesyjne) ───────────────────────────────────
+let pwResolve = null;
+
+function showPasswordModal() {
+  return new Promise((resolve) => {
+    pwResolve = resolve;
+    const overlay = document.getElementById('pwModalOverlay');
+    const input = document.getElementById('pwModalInput');
+    input.value = '';
+    overlay.style.display = 'flex';
+    setTimeout(() => input.focus(), 50);
+  });
+}
+
+function submitPasswordModal() {
+  const input = document.getElementById('pwModalInput');
+  const val = input.value;
+  document.getElementById('pwModalOverlay').style.display = 'none';
+  if (pwResolve) { const r = pwResolve; pwResolve = null; r(val); }
+}
+
+function cancelPasswordModal() {
+  document.getElementById('pwModalOverlay').style.display = 'none';
+  if (pwResolve) { const r = pwResolve; pwResolve = null; r(null); }
+}
+
+async function getPasswordAsync() {
+  const cached = sessionStorage.getItem('leki-pass');
+  if (cached) return cached;
+  const entered = await showPasswordModal();
+  if (entered) sessionStorage.setItem('leki-pass', entered);
+  return entered || '';
 }
 
 function clearPassword() {
   sessionStorage.removeItem('leki-pass');
-  state.saveError = null;
+}
+
+function revertToLastConfirmed() {
+  state.leki = JSON.parse(JSON.stringify(lastConfirmed.leki));
+  state.lastDeductDate = lastConfirmed.lastDeductDate;
   render();
 }
 
@@ -177,6 +235,7 @@ async function loadData() {
     const data = await res.json();
     state.leki = data.leki || [];
     state.lastDeductDate = data.lastDeductDate || null;
+    lastConfirmed = { leki: JSON.parse(JSON.stringify(state.leki)), lastDeductDate: state.lastDeductDate };
     state.loading = false;
     processCatchup();
     checkReminder();
@@ -191,29 +250,26 @@ async function loadData() {
 function saveData() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    const password = getPassword();
+    const password = await getPasswordAsync();
+    if (!password) {
+      revertToLastConfirmed();
+      return;
+    }
     try {
       const res = await fetch(`${WORKER_URL}/leki`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Auth-Password': password },
         body: JSON.stringify({ leki: state.leki, lastDeductDate: state.lastDeductDate }),
       });
-      if (res.status === 401) {
-        sessionStorage.removeItem('leki-pass');
-        state.saveError = 'Nieprawidłowe hasło — zmiana NIE została zapisana na serwerze. Spróbuj ponownie.';
-        render();
-        return;
-      }
       if (!res.ok) {
-        state.saveError = 'Błąd zapisu na serwerze. Sprawdź połączenie i spróbuj ponownie.';
-        render();
+        if (res.status === 401) sessionStorage.removeItem('leki-pass');
+        revertToLastConfirmed();
         return;
       }
-      if (state.saveError) { state.saveError = null; render(); }
+      // sukces - to staje się nowym punktem odniesienia
+      lastConfirmed = { leki: JSON.parse(JSON.stringify(state.leki)), lastDeductDate: state.lastDeductDate };
     } catch (e) {
-      console.error('Zapis nie powiódł się', e);
-      state.saveError = 'Brak połączenia z serwerem — zmiana NIE została zapisana.';
-      render();
+      revertToLastConfirmed();
     }
   }, 500);
 }
@@ -394,13 +450,6 @@ function buildHTML() {
     html += `<div class="banner info"><span>✅ ${state.catchupMsg}</span></div>`;
   }
 
-  if (state.saveError) {
-    html += `<div class="banner err">
-      <span>⚠️ ${state.saveError}</span>
-      <button class="close" onclick="state.saveError=null;render()">✕</button>
-    </div>`;
-  }
-
   html += `<div class="infoStatic"><span>📅 Dawki odliczane przy każdym otwarciu aplikacji — za każdy miniony dzień po 9:00. Dane synchronizują się między urządzeniami.</span></div>`;
 
   html += `<div class="thresholds">
@@ -485,6 +534,13 @@ function render() {
 }
 
 // ─── Start ───────────────────────────────────────────────────────
+document.getElementById('pwModalOk').addEventListener('click', submitPasswordModal);
+document.getElementById('pwModalCancel').addEventListener('click', cancelPasswordModal);
+document.getElementById('pwModalInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitPasswordModal();
+  if (e.key === 'Escape') cancelPasswordModal();
+});
+
 document.body.classList.toggle('dark', state.dark);
 loadData();
 </script>
