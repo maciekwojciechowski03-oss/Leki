@@ -120,12 +120,29 @@ let state = {
   catchupMsg: null,
   showReminder: false,
   reminderClosed: false,
+  saveError: null,
   kupno: {},
   form: { name: '', stock: '', dose: '' },
   formErr: '',
 };
 
 let saveTimer = null;
+
+// ─── Hasło (sesyjne) ───────────────────────────────────────────
+function getPassword() {
+  let pw = sessionStorage.getItem('leki-pass');
+  if (!pw) {
+    pw = window.prompt('Podaj hasło, aby zapisać zmianę:');
+    if (pw) sessionStorage.setItem('leki-pass', pw);
+  }
+  return pw || '';
+}
+
+function clearPassword() {
+  sessionStorage.removeItem('leki-pass');
+  state.saveError = null;
+  render();
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────
 function fix(n) { return parseFloat(parseFloat(n).toFixed(4)); }
@@ -174,14 +191,29 @@ async function loadData() {
 function saveData() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
+    const password = getPassword();
     try {
-      await fetch(`${WORKER_URL}/leki`, {
+      const res = await fetch(`${WORKER_URL}/leki`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Password': password },
         body: JSON.stringify({ leki: state.leki, lastDeductDate: state.lastDeductDate }),
       });
+      if (res.status === 401) {
+        sessionStorage.removeItem('leki-pass');
+        state.saveError = 'Nieprawidłowe hasło — zmiana NIE została zapisana na serwerze. Spróbuj ponownie.';
+        render();
+        return;
+      }
+      if (!res.ok) {
+        state.saveError = 'Błąd zapisu na serwerze. Sprawdź połączenie i spróbuj ponownie.';
+        render();
+        return;
+      }
+      if (state.saveError) { state.saveError = null; render(); }
     } catch (e) {
       console.error('Zapis nie powiódł się', e);
+      state.saveError = 'Brak połączenia z serwerem — zmiana NIE została zapisana.';
+      render();
     }
   }, 500);
 }
@@ -345,7 +377,10 @@ function buildHTML() {
         <h1>💊 Moje Leki</h1>
         <p>Śledź zapasy i dawkowanie</p>
       </div>
-      <button class="themeBtn" onclick="toggleDark()">${state.dark ? '☀️' : '🌙'}</button>
+      <div style="display:flex;gap:8px;">
+        <button class="themeBtn" onclick="clearPassword()" title="Wymaga ponownego podania hasła przy następnej zmianie">🔒</button>
+        <button class="themeBtn" onclick="toggleDark()">${state.dark ? '☀️' : '🌙'}</button>
+      </div>
     </div>`;
 
   if (state.showReminder && state.leki.length > 0) {
@@ -357,6 +392,13 @@ function buildHTML() {
 
   if (state.catchupMsg) {
     html += `<div class="banner info"><span>✅ ${state.catchupMsg}</span></div>`;
+  }
+
+  if (state.saveError) {
+    html += `<div class="banner err">
+      <span>⚠️ ${state.saveError}</span>
+      <button class="close" onclick="state.saveError=null;render()">✕</button>
+    </div>`;
   }
 
   html += `<div class="infoStatic"><span>📅 Dawki odliczane przy każdym otwarciu aplikacji — za każdy miniony dzień po 9:00. Dane synchronizują się między urządzeniami.</span></div>`;
