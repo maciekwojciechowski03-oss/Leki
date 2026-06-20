@@ -143,7 +143,7 @@ const CRIT_DAYS = 7;
 // ─── Stan aplikacji ──────────────────────────────────────────────
 let state = {
   leki: [],
-  lastDeductDate: null,
+
   loading: true,
   error: null,
   dark: localStorage.getItem('leki-dark') === 'true',
@@ -156,7 +156,7 @@ let state = {
 };
 
 let saveTimer = null;
-let lastConfirmed = { leki: [], lastDeductDate: null }; // ostatni potwierdzony stan z serwera
+let lastConfirmed = { leki: [] }; // ostatni potwierdzony stan z serwera
 
 // ─── Hasło (modal, sesyjne) ───────────────────────────────────
 let pwResolve = null;
@@ -198,7 +198,6 @@ function clearPassword() {
 
 function revertToLastConfirmed() {
   state.leki = JSON.parse(JSON.stringify(lastConfirmed.leki));
-  state.lastDeductDate = lastConfirmed.lastDeductDate;
   render();
 }
 
@@ -234,8 +233,7 @@ async function loadData() {
     if (!res.ok) throw new Error('Błąd serwera: ' + res.status);
     const data = await res.json();
     state.leki = data.leki || [];
-    state.lastDeductDate = data.lastDeductDate || null;
-    lastConfirmed = { leki: JSON.parse(JSON.stringify(state.leki)), lastDeductDate: state.lastDeductDate };
+    lastConfirmed = { leki: JSON.parse(JSON.stringify(state.leki)) };
     state.loading = false;
     processCatchup();
     checkReminder();
@@ -259,7 +257,7 @@ function saveData() {
       const res = await fetch(`${WORKER_URL}/leki`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Auth-Password': password },
-        body: JSON.stringify({ leki: state.leki, lastDeductDate: state.lastDeductDate }),
+        body: JSON.stringify({ leki: state.leki }),
       });
       if (!res.ok) {
         if (res.status === 401) sessionStorage.removeItem('leki-pass');
@@ -267,7 +265,7 @@ function saveData() {
         return;
       }
       // sukces - to staje się nowym punktem odniesienia
-      lastConfirmed = { leki: JSON.parse(JSON.stringify(state.leki)), lastDeductDate: state.lastDeductDate };
+      lastConfirmed = { leki: JSON.parse(JSON.stringify(state.leki)) };
     } catch (e) {
       revertToLastConfirmed();
     }
@@ -275,19 +273,34 @@ function saveData() {
 }
 
 function processCatchup() {
-  const missed = calcMissedDays(state.lastDeductDate);
   const now = new Date();
-  if (missed > 0) {
-    state.leki = state.leki.map(l => ({ ...l, stock: Math.max(0, fix(l.stock - l.dose * missed)) }));
+  let anyChange = false;
+  let maxMissed = 0;
+
+  state.leki = state.leki.map(lek => {
+    // Leki bez daty traktujemy jakby zostały dodane dziś — bez odliczania
+    const base = lek.lastDeductDate || toDateKey(now);
+    const missed = calcMissedDays(base);
+    if (missed <= 0) return lek;
+
+    anyChange = true;
+    if (missed > maxMissed) maxMissed = missed;
+
+    // Wyznacz datę do której odliczono
     const lastDeducted = new Date();
     if (now.getHours() < 9) lastDeducted.setDate(lastDeducted.getDate() - 1);
-    state.lastDeductDate = toDateKey(lastDeducted);
-    state.catchupMsg = `Odjęto ${missed} ${missed === 1 ? 'dawkę' : missed < 5 ? 'dawki' : 'dawek'} za ostatnie ${missed} ${missed === 1 ? 'dzień' : missed < 5 ? 'dni' : 'dni'}`;
+
+    return {
+      ...lek,
+      stock: Math.max(0, fix(lek.stock - lek.dose * missed)),
+      lastDeductDate: toDateKey(lastDeducted),
+    };
+  });
+
+  if (anyChange) {
     saveData();
+    state.catchupMsg = `Odjęto zaległe dawki za ${maxMissed} ${maxMissed === 1 ? 'dzień' : maxMissed < 5 ? 'dni' : 'dni'}`;
     setTimeout(() => { state.catchupMsg = null; render(); }, 6000);
-  } else if (!state.lastDeductDate && now.getHours() >= 9) {
-    state.lastDeductDate = toDateKey(now);
-    saveData();
   }
 }
 
@@ -309,7 +322,7 @@ function dodajLek() {
   if (isNaN(stock) || stock < 0) { state.formErr = 'Podaj ilość tabletek.'; render(); return; }
   if (isNaN(dose) || dose <= 0) { state.formErr = 'Podaj dawkę dzienną (np. 1.25).'; render(); return; }
   const maxOrd = state.leki.length ? Math.max(...state.leki.map(l => l.order ?? 0)) : 0;
-  state.leki.push({ id: Date.now(), name, stock, dose, order: maxOrd + 1 });
+  state.leki.push({ id: Date.now(), name, stock, dose, order: maxOrd + 1, lastDeductDate: toDateKey(new Date()) });
   state.form = { name: '', stock: '', dose: '' };
   state.formErr = '';
   saveData();
