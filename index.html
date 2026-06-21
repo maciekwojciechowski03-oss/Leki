@@ -298,7 +298,8 @@ function processCatchup() {
   });
 
   if (anyChange) {
-    saveData();
+    // Nie zapisujemy od razu na serwer (czyli nie pytamy o hasło) — to tylko
+    // przeliczenie lokalne. Zapis "doczepi się" do najbliższej ręcznej zmiany.
     state.catchupMsg = `Odjęto zaległe dawki za ${maxMissed} ${maxMissed === 1 ? 'dzień' : maxMissed < 5 ? 'dni' : 'dni'}`;
     setTimeout(() => { state.catchupMsg = null; render(); }, 6000);
   }
