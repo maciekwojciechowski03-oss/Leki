@@ -123,8 +123,10 @@
 <div id="app"></div>
 <div id="pwModalOverlay" class="pwModalOverlay">
   <div class="pwModalBox">
-    <p class="pwModalTitle">🔒 Podaj hasło, aby zapisać zmianę</p>
+    <p class="pwModalTitle">🔒 Podaj hasło do edycji</p>
+    <p style="margin:0 0 12px;font-size:12px;color:var(--muted)">Hasło będzie pamiętane przez 20 minut — w tym czasie nie zapyta ponownie.</p>
     <input type="password" id="pwModalInput" class="pwModalInput" placeholder="••••••••" autocomplete="current-password">
+    <p id="pwModalErr" class="errText" style="display:none"></p>
     <div class="pwModalBtns">
       <button id="pwModalCancel" class="pwModalCancelBtn" type="button">Anuluj</button>
       <button id="pwModalOk" class="pwModalOkBtn" type="button">Zapisz</button>
@@ -158,14 +160,35 @@ let state = {
 let saveTimer = null;
 let lastConfirmed = { leki: [] }; // ostatni potwierdzony stan z serwera
 
-// ─── Hasło (modal, sesyjne) ───────────────────────────────────
+// ─── Hasło (modal, ważne 20 minut) ────────────────────────────
+const PW_TTL_MS = 20 * 60 * 1000;
 let pwResolve = null;
 
-function showPasswordModal() {
+function getCachedPassword() {
+  try {
+    const raw = localStorage.getItem('leki-pass');
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj.pass || Date.now() - obj.ts > PW_TTL_MS) {
+      localStorage.removeItem('leki-pass');
+      return null;
+    }
+    return obj.pass;
+  } catch (e) { return null; }
+}
+
+function cachePassword(pass) {
+  localStorage.setItem('leki-pass', JSON.stringify({ pass: pass, ts: Date.now() }));
+}
+
+function showPasswordModal(errMsg) {
   return new Promise((resolve) => {
     pwResolve = resolve;
     const overlay = document.getElementById('pwModalOverlay');
     const input = document.getElementById('pwModalInput');
+    const err = document.getElementById('pwModalErr');
+    if (errMsg) { err.textContent = errMsg; err.style.display = 'block'; }
+    else { err.style.display = 'none'; }
     input.value = '';
     overlay.style.display = 'flex';
     setTimeout(() => input.focus(), 50);
@@ -184,16 +207,41 @@ function cancelPasswordModal() {
   if (pwResolve) { const r = pwResolve; pwResolve = null; r(null); }
 }
 
+// Weryfikacja hasła na serwerze — POST ostatniego potwierdzonego stanu
+// (zapis tych samych danych, więc niczego nie zmienia).
+async function verifyPassword(pass) {
+  try {
+    const res = await fetch(`${WORKER_URL}/leki`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Auth-Password': pass },
+      body: JSON.stringify({ leki: lastConfirmed.leki }),
+    });
+    return res.ok;
+  } catch (e) { return false; }
+}
+
+// Pyta o hasło (z weryfikacją) dopóki nie będzie poprawne lub użytkownik anuluje.
+async function ensurePassword() {
+  if (getCachedPassword()) return true;
+  let errMsg = null;
+  while (true) {
+    const entered = await showPasswordModal(errMsg);
+    if (!entered) return false; // anulowano — tryb tylko do podglądu
+    const ok = await verifyPassword(entered);
+    if (ok) { cachePassword(entered); return true; }
+    errMsg = 'Nieprawidłowe hasło — spróbuj ponownie.';
+  }
+}
+
 async function getPasswordAsync() {
-  const cached = sessionStorage.getItem('leki-pass');
+  const cached = getCachedPassword();
   if (cached) return cached;
-  const entered = await showPasswordModal();
-  if (entered) sessionStorage.setItem('leki-pass', entered);
-  return entered || '';
+  const ok = await ensurePassword();
+  return ok ? (getCachedPassword() || '') : '';
 }
 
 function clearPassword() {
-  sessionStorage.removeItem('leki-pass');
+  localStorage.removeItem('leki-pass');
 }
 
 function revertToLastConfirmed() {
@@ -233,9 +281,11 @@ async function loadData() {
     if (!res.ok) throw new Error('Błąd serwera: ' + res.status);
     const data = await res.json();
     state.leki = data.leki || [];
-    lastConfirmed = { leki: JSON.parse(JSON.stringify(state.leki)) };
     state.loading = false;
     processCatchup();
+    // Punkt odniesienia ustawiamy PO odliczeniu zaległych dawek — dzięki temu
+    // nieudany zapis nie przywraca starych (wyższych) ilości z serwera.
+    lastConfirmed = { leki: JSON.parse(JSON.stringify(state.leki)) };
     checkReminder();
     render();
   } catch (e) {
@@ -260,17 +310,20 @@ function saveData() {
         body: JSON.stringify({ leki: state.leki }),
       });
       if (!res.ok) {
-        if (res.status === 401) sessionStorage.removeItem('leki-pass');
+        if (res.status === 401) clearPassword();
         revertToLastConfirmed();
         return;
       }
       // sukces - to staje się nowym punktem odniesienia
       lastConfirmed = { leki: JSON.parse(JSON.stringify(state.leki)) };
+      cachePassword(password); // odśwież ważność hasła (20 min od ostatniego zapisu)
     } catch (e) {
       revertToLastConfirmed();
     }
   }, 500);
 }
+
+let catchupChanged = false;
 
 function processCatchup() {
   const now = new Date();
@@ -298,8 +351,8 @@ function processCatchup() {
   });
 
   if (anyChange) {
-    // Nie zapisujemy od razu na serwer (czyli nie pytamy o hasło) — to tylko
-    // przeliczenie lokalne. Zapis "doczepi się" do najbliższej ręcznej zmiany.
+    // Zapis na serwer nastąpi zaraz po podaniu hasła na starcie (zobacz sekcję Start).
+    catchupChanged = true;
     state.catchupMsg = `Odjęto zaległe dawki za ${maxMissed} ${maxMissed === 1 ? 'dzień' : maxMissed < 5 ? 'dni' : 'dni'}`;
     setTimeout(() => { state.catchupMsg = null; render(); }, 6000);
   }
@@ -556,7 +609,13 @@ document.getElementById('pwModalInput').addEventListener('keydown', (e) => {
 });
 
 document.body.classList.toggle('dark', state.dark);
-loadData();
+loadData().then(async () => {
+  if (state.error) return;
+  const ok = await ensurePassword();
+  // Utrwal odliczone zaległe dawki na serwerze, żeby ilości nie "skakały"
+  // między urządzeniami i po nieudanym zapisie.
+  if (ok && catchupChanged) saveData();
+});
 </script>
 </body>
 </html>
