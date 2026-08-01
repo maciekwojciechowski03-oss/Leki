@@ -28,16 +28,17 @@
     -webkit-backdrop-filter:blur(14px);
     box-shadow:0 8px 32px rgba(15,23,42,.25);
   }
+  .ico { flex-shrink:0; vertical-align:-3px; }
   .container { max-width:480px; margin:0 auto; padding:0 16px 52px; }
   .header { display:flex; justify-content:space-between; align-items:center; padding:28px 0 16px; }
-  .header h1 { margin:0; font-size:26px; font-weight:800; color:#fff; letter-spacing:-0.5px; text-shadow:0 2px 12px rgba(15,23,42,.35); }
+  .header h1 { margin:0; font-size:26px; font-weight:800; color:#fff; letter-spacing:-0.5px; text-shadow:0 2px 12px rgba(15,23,42,.35); display:flex; align-items:center; gap:10px; }
   .header p { margin:3px 0 0; font-size:13px; color:var(--muted); text-shadow:0 1px 8px rgba(15,23,42,.35); }
-  .themeBtn { color:#fff; border-radius:12px; padding:8px 12px; cursor:pointer; font-size:20px; }
+  .themeBtn { color:#fff; border-radius:12px; width:44px; height:44px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .banner { border-radius:16px; padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
   .banner.warn { background:rgba(245,158,11,.30); border-color:rgba(253,230,138,.45); }
   .banner.info { background:rgba(52,211,153,.28); border-color:rgba(187,247,208,.45); }
   .banner.err { background:rgba(239,68,68,.30); border-color:rgba(252,165,165,.45); }
-  .banner span { font-size:13px; font-weight:600; }
+  .banner span { font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:7px; }
   .banner.warn span { color:#FEF3C7; }
   .banner.info span { color:#DCFCE7; }
   .banner.err span { color:#FEE2E2; }
@@ -75,12 +76,13 @@
   .orderBtns button:disabled { opacity:.2; cursor:default; }
   .lekName { font-size:17px; font-weight:700; color:#fff; word-break:break-word; }
   .lekTop .right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-  .pill { padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid transparent; }
+  .pill { padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid transparent; display:inline-flex; align-items:center; gap:5px; }
   .pill.ok { background:rgba(52,211,153,.30); border-color:rgba(52,211,153,.4); color:#A7F3D0; }
   .pill.warning { background:rgba(245,158,11,.30); border-color:rgba(245,158,11,.4); color:#FDE68A; }
   .pill.critical { background:rgba(239,68,68,.32); border-color:rgba(239,68,68,.45); color:#FECACA; }
   .pill.none { background:rgba(255,255,255,.18); border-color:rgba(255,255,255,.3); color:rgba(255,255,255,.7); }
-  .delBtn { background:rgba(239,68,68,.38); color:#fff; border:1px solid rgba(239,68,68,.45); border-radius:9px; width:28px; height:28px; font-size:12px; cursor:pointer; font-weight:700; }
+  .delBtn { background:rgba(239,68,68,.38); color:#fff; border:1px solid rgba(239,68,68,.45); border-radius:9px; width:28px; height:28px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+  .banner button.close { display:inline-flex; align-items:center; justify-content:center; }
   .stepRow { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
   .stepRow .lbl { font-size:13px; color:var(--muted); font-weight:500; }
   .stepCtrl { display:flex; align-items:center; gap:6px; }
@@ -108,7 +110,7 @@
     backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
     box-shadow:0 10px 40px rgba(0,0,0,.35);
   }
-  .pwModalTitle { margin:0 0 14px; font-size:16px; font-weight:700; color:#fff; }
+  .pwModalTitle { margin:0 0 14px; font-size:16px; font-weight:700; color:#fff; display:flex; align-items:center; gap:8px; }
   .pwModalInput {
     width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,.4);
     font-size:16px; outline:none; background:rgba(255,255,255,.18); color:#fff; box-sizing:border-box;
@@ -125,7 +127,7 @@
 <div id="app"></div>
 <div id="pwModalOverlay" class="pwModalOverlay">
   <div class="pwModalBox">
-    <p class="pwModalTitle">🔒 Podaj hasło do edycji</p>
+    <p class="pwModalTitle"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Podaj hasło do edycji</p>
     <p style="margin:0 0 12px;font-size:12px;color:var(--muted)">Hasło będzie pamiętane przez 20 minut — w tym czasie nie zapyta ponownie.</p>
     <input type="password" id="pwModalInput" class="pwModalInput" placeholder="••••••••" autocomplete="current-password">
     <p id="pwModalErr" class="errText" style="display:none"></p>
@@ -143,6 +145,26 @@ const WORKER_URL = "https://plain-fire-5209.maciekwojciechowski03.workers.dev";
 // ─── Stałe ───────────────────────────────────────────────────────
 const WARN_DAYS = 14;
 const CRIT_DAYS = 7;
+
+// ─── Ikony SVG (lucide) ──────────────────────────────────────────
+const ICONS = {
+  pill: '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  warn: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  crit: '<path d="M12 16h.01"/><path d="M12 8v4"/><path d="M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z"/>',
+  check: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  calendar: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  up: '<path d="m18 15-6-6-6 6"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  clipboard: '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
+  hourglass: '<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>',
+};
+
+function icon(name, size = 16, sw = 2) {
+  return `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+}
 
 // ─── Stan aplikacji ──────────────────────────────────────────────
 let state = {
@@ -451,8 +473,8 @@ function pillHtml(days) {
   if (days === null) return `<span class="pill none">brak dawki</span>`;
   const s = getStatus(days);
   const labels = {
-    critical: days === 0 ? 'Brak! 🚨' : `${days} dni 🚨`,
-    warning: `${days} dni ⚠️`,
+    critical: (days === 0 ? 'Brak!' : `${days} dni`) + ' ' + icon('crit', 12),
+    warning: `${days} dni ` + icon('warn', 12),
     ok: `${days} dni`,
   };
   return `<span class="pill ${s}">${labels[s]}</span>`;
@@ -472,12 +494,12 @@ function stepRowHtml(label, value, onMinus, onPlus, onChangeFn, focusId) {
 
 function buildHTML() {
   if (state.loading) {
-    return `<div class="container"><div class="loadingBox"><div style="font-size:40px">⏳</div><p>Wczytywanie danych...</p></div></div>`;
+    return `<div class="container"><div class="loadingBox"><div>${icon('hourglass', 40, 1.5)}</div><p>Wczytywanie danych...</p></div></div>`;
   }
   if (state.error) {
     return `<div class="container">
       <div class="errorBox">
-        <div style="font-size:40px">⚠️</div>
+        <div>${icon('warn', 40, 1.5)}</div>
         <p>Nie udało się połączyć z serwerem.</p>
         <code>${state.error}</code>
         <p style="font-size:12px;margin-top:10px">Sprawdź czy adres Workera jest poprawny i czy Worker działa.</p>
@@ -491,31 +513,31 @@ function buildHTML() {
   let html = `<div class="container">
     <div class="header">
       <div>
-        <h1>💊 Moje Leki w Apteczce</h1>
+        <h1>${icon('pill', 26)} Moje Leki w Apteczce</h1>
         <p>Śledź zapasy i dawkowanie</p>
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="themeBtn" onclick="clearPassword()" title="Wymaga ponownego podania hasła przy następnej zmianie">🔒</button>
+        <button class="themeBtn" onclick="clearPassword()" title="Wymaga ponownego podania hasła przy następnej zmianie">${icon('lock', 20)}</button>
       </div>
     </div>`;
 
   if (state.showReminder && state.leki.length > 0) {
     html += `<div class="banner warn">
-      <span>💊 Pamiętaj o wzięciu leków!</span>
-      <button class="close" onclick="closeReminder()">✕</button>
+      <span>${icon('bell', 16)} Pamiętaj o wzięciu leków!</span>
+      <button class="close" onclick="closeReminder()">${icon('x', 14)}</button>
     </div>`;
   }
 
   if (state.catchupMsg) {
-    html += `<div class="banner info"><span>✅ ${state.catchupMsg}</span></div>`;
+    html += `<div class="banner info"><span>${icon('check', 16)} ${state.catchupMsg}</span></div>`;
   }
 
-  html += `<div class="infoStatic"><span>📅 Dawki odliczane przy każdym otwarciu aplikacji — za każdy miniony dzień po 9:00. Dane synchronizują się między urządzeniami.</span></div>`;
+  html += `<div class="infoStatic"><span>${icon('calendar', 14)} Dawki odliczane przy każdym otwarciu aplikacji — za każdy miniony dzień po 9:00. Dane synchronizują się między urządzeniami.</span></div>`;
 
   html += `<div class="thresholds">
     <span class="lbl">Progi alarmu:</span>
-    <span class="w">⚠️ poniżej ${WARN_DAYS} dni</span>
-    <span class="c">🚨 poniżej ${CRIT_DAYS} dni</span>
+    <span class="w">${icon('warn', 13)} poniżej ${WARN_DAYS} dni</span>
+    <span class="c">${icon('crit', 13)} poniżej ${CRIT_DAYS} dni</span>
   </div>`;
 
   html += `<div class="card">
@@ -533,7 +555,7 @@ function buildHTML() {
   </div>`;
 
   if (sorted.length === 0) {
-    html += `<div class="empty"><div class="icon">📋</div><p>Nie masz jeszcze żadnych leków.<br>Dodaj pierwszy powyżej.</p></div>`;
+    html += `<div class="empty"><div class="icon">${icon('clipboard', 42, 1.5)}</div><p>Nie masz jeszcze żadnych leków.<br>Dodaj pierwszy powyżej.</p></div>`;
   } else {
     sorted.forEach((lek, idx) => {
       const days = calcDays(lek.stock, lek.dose);
@@ -543,14 +565,14 @@ function buildHTML() {
         <div class="lekTop">
           <div class="left">
             <div class="orderBtns">
-              <button onclick="moveLek(${lek.id},-1)" ${idx === 0 ? 'disabled' : ''}>▲</button>
-              <button onclick="moveLek(${lek.id},1)" ${idx === sorted.length - 1 ? 'disabled' : ''}>▼</button>
+              <button onclick="moveLek(${lek.id},-1)" ${idx === 0 ? 'disabled' : ''}>${icon('up', 13)}</button>
+              <button onclick="moveLek(${lek.id},1)" ${idx === sorted.length - 1 ? 'disabled' : ''}>${icon('down', 13)}</button>
             </div>
             <span class="lekName">${lek.name}</span>
           </div>
           <div class="right">
             ${pillHtml(days)}
-            <button class="delBtn" onclick="usunLek(${lek.id})">✕</button>
+            <button class="delBtn" onclick="usunLek(${lek.id})">${icon('x', 14)}</button>
           </div>
         </div>
         ${stepRowHtml('Zapas', lek.stock, `adjStock(${lek.id},-${lek.dose})`, `adjStock(${lek.id},${lek.dose})`, `(function(v){setStock(${lek.id},v)})`, `stock-${lek.id}`)}
